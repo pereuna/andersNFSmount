@@ -10,20 +10,20 @@ Katso tarkempi arkkitehtuuri- ja vaiheistussuunnitelma dokumentista [`docs/andro
 
 ## Kehitysympäristön oletus
 
-- Gradle 8.7
-- Kotlin Gradlen mukana tulevalla compilerillä
+- Gradle 9.4.1 tai muu Android-projektin kanssa yhteensopiva paikallinen Gradle-asennus
 - JVM 17
-- Android-projekti, johon NFS-ominaisuus lisätään Kotlinilla
+- Android SDK asennettuna WSL Debianissa tai Android Studiossa
+- Windows 10:n `adb`, jos puhelin näkyy Windowsille mutta ei WSL:lle
 
 ## Projektin nykytila
 
-Tämä hakemisto sisältää tarkoituksella mahdollisimman pienen Gradle/Kotlin-pohjan. Se ei vielä ole valmis Android-sovellus eikä siitä synny APK-pakettia. Nykyinen testi kääntää Kotlin-koodin JVM:lle ja ajaa komentoriviltä `main`-funktion.
+Tämä repository on tällä hetkellä JVM/Kotlin proof-of-concept ja suunnittelupohja. Se kääntää `src/main/kotlin`-hakemiston ja ajaa komentoriviltä `main`-funktion, mutta tästä repositorystä ei nyt tehdä Android APK:ta.
 
-`MainActivity` ja Android-yhteensopivuusluokat ovat tässä vaiheessa kokeilupohjia, jotta NFS-kerrosta voidaan hahmotella ennen varsinaista Android-projektiksi muuttamista.
+Aiemmin käsin tehty `app/`-moduuliyritys on poistettu. Seuraava järkevä etenemistapa ei ole kirjoittaa Android-projektin rakennetta käsin tähän repositoryyn, vaan ottaa pohjaksi valmis Android-esimerkkiprojekti, jossa Gradle-, Android SDK-, manifesti- ja `DocumentsProvider`-rakenne on jo valmiina.
 
 ## Testaus PC-hostissa
 
-Näillä ohjeilla voit testata nykyisen version Linux-, macOS- tai Windows-hostissa.
+Näillä ohjeilla voit testata nykyisen JVM/Kotlin-version Linux-, macOS- tai Windows-hostissa.
 
 ### 1. Tarkista työkalut
 
@@ -34,7 +34,7 @@ java -version
 gradle --version
 ```
 
-`java -version`-komennon pitäisi näyttää JDK 17. Gradlen pitäisi olla 8.x-sarjaa; projektin oletus on Gradle 8.7.
+`java -version`-komennon pitäisi näyttää JDK 17. Gradlen pitäisi olla sellainen versio, jolla nykyinen Kotlin-käännös toimii.
 
 ### 2. Käännä projekti
 
@@ -70,65 +70,106 @@ find build/libs -maxdepth 1 -type f -name '*.jar' -print
 
 Jos haluat ajaa JARin suoraan, lisää Kotlinin standardikirjasto luokkapolkuun. Helpoin suositeltu ajotapa tässä projektissa on kuitenkin `gradle run`, koska Gradle lisää tarvittavan luokkapolun automaattisesti.
 
-## Testaus kännykässä
+## Android-pohja: lataa valmis StorageProvider-esimerkkiprojekti
 
-Nykyinen repository ei vielä rakenna asennettavaa Android APK:ta. Kännykässä testaus onnistuu tässä vaiheessa helpoiten Termuxissa ajettavana JVM/Kotlin-komentorivitestinä. Tämä testaa saman käännöksen ja `main`-funktion kuin PC-hostissa.
+Tähän NFS-sovellukseen sopivin pohja on Androidin `DocumentsProvider`-esimerkki, ei tyhjä itse käsin rakennettu Gradle-projekti. Androidin Storage Access Frameworkissa juuri `DocumentsProvider` on se komponentti, jolla sovellus voi näyttää omat tiedostonsa Androidin tiedostovalitsimessa ja SAF-yhteensopivissa sovelluksissa.
 
-### Vaihtoehto A: testaa Android-puhelimessa Termuxilla
+Sopiva valmis pohja on Androidin virallinen StorageProvider-sample:
 
-1. Asenna Termux esimerkiksi F-Droidista.
-2. Avaa Termux ja asenna perustyökalut:
+- GitHub-repository: <https://github.com/android/storage-samples>
+- Esimerkkihakemisto: `StorageProvider/`
+- Dokumentaatio sanoo suoraan, että sample näyttää yksinkertaisen `DocumentsProvider`-toteutuksen Storage Access Frameworkilla: <https://android.googlesource.com/platform/developers/samples/android/+/master/content/documentsUi/StorageProvider/README.md>
+- Androidin SAF-dokumentaatio selittää, että `DocumentsProvider` on ContentProvider-aliluokka, jolla storage-palvelu näyttää hallitsemansa tiedostot käyttäjälle: <https://developer.android.com/guide/topics/providers/document-provider>
 
-   ```bash
-   pkg update
-   pkg install git openjdk-17 gradle
-   ```
+Huomio: `android/storage-samples` on arkistoitu eikä sitä ylläpidetä aktiivisesti, mutta tähän tarkoitukseen se on silti hyvä lähtöpiste, koska se sisältää valmiin pienen `DocumentsProvider`-rakenteen. Se on lähempänä NFS-tavoitetta kuin esimerkiksi Camera2Basic, koska Camera2Basic on kameran API-esimerkki eikä tiedostopalveluntarjoaja.
 
-3. Kloonaa projekti puhelimeen:
+### 1. Lataa sample WSL Debianissa
 
-   ```bash
-   git clone <repository-url>
-   cd andersNFSmount
-   ```
+Tee tämä esimerkiksi samaan `~/android`-hakemistoon, jossa sinulla on tämä repository:
 
-   Jos repository on jo kopioitu puhelimeen muulla tavalla, siirry suoraan projektihakemistoon.
+```bash
+cd ~/android
+git clone https://github.com/android/storage-samples.git android-storage-samples
+cd android-storage-samples/StorageProvider
+```
 
-4. Käännä ja aja testi:
+Jos et halua kloonata koko storage-samples-repositoryä pysyvästi, voit poistaa sen myöhemmin ja säilyttää vain `StorageProvider`-hakemiston pohjana.
 
-   ```bash
-   gradle clean build
-   gradle run
-   ```
+### 2. Avaa sample Android Studiossa tai tarkista Gradle-komentoriviltä
 
-5. Onnistunut ajo tulostaa:
+Helpoin tapa on avata hakemisto Android Studiossa:
 
-   ```text
-   andersNFSmount Kotlin project is ready.
-   ```
+```text
+~/android/android-storage-samples/StorageProvider
+```
 
-Huomio: tämä ei vielä näytä NFS-jakoa Androidin tiedostosovelluksessa, koska `DocumentsProvider`- ja APK-toteutus puuttuvat vielä.
+Android Studio osaa yleensä päivittää vanhan sample-projektin Gradle/AGP-asetukset nykyiseen Android SDK -ympäristöösi. Tämä on parempi kuin kirjoittaa `settings.gradle`, `build.gradle`, wrapperit ja manifestit käsin.
 
-### Vaihtoehto B: myöhempi APK-testaus Android-laitteella
+Komentoriviltä voit ensin katsoa, mitä tehtäviä sample tarjoaa:
 
-Kun projekti on muutettu varsinaiseksi Android-sovellukseksi, testaus tehdään näin:
+```bash
+gradle tasks --all
+```
 
-1. Kytke puhelimesta **Developer options** ja **USB debugging** päälle.
-2. Liitä puhelin PC:hen USB-kaapelilla.
-3. Tarkista yhteys:
+Jos sample sisältää oman wrapperin ja haluat käyttää sitä paikallisesti, voit käyttää myös `./gradlew`-komentoa. Wrapperin `gradle-wrapper.jar` on binääritiedosto, joten sitä ei pidä yrittää lisätä tähän PR:ään, jos PR-järjestelmä sanoo `Binääritiedostoja ei tueta`.
 
-   ```bash
-   adb devices
-   ```
+### 3. Rakenna sample-APK
 
-4. Rakenna ja asenna debug-versio Android Gradle Plugin -projektissa:
+Kun Android Studio tai Gradle on päivittänyt projektin toimivaan tilaan, rakenna debug-APK:
 
-   ```bash
-   ./gradlew installDebug
-   ```
+```bash
+gradle assembleDebug
+```
 
-5. Avaa sovellus puhelimessa ja testaa NFS-yhteys samassa Wi-Fi- tai VPN-verkossa olevaan NFS-palvelimeen.
+Jos sample on monimoduulinen ja tehtävä näkyy moduulin alla, käytä tehtävälistassa näkyvää nimeä, esimerkiksi:
 
-Nämä APK-vaiheet ovat tulevaa Android-projektimuotoa varten. Nykyisessä minimipohjassa oikea testikomento on edelleen `gradle run`.
+```bash
+gradle :Application:assembleDebug
+```
+
+Etsi syntynyt APK:
+
+```bash
+find . -path '*/build/outputs/apk/debug/*.apk' -print
+```
+
+### 4. Kopioi APK Windowsin puolelle
+
+Korvaa `<windows-kayttaja>` omalla Windows-käyttäjänimelläsi ja `<apk-polku>` edellisen `find`-komennon tuloksella:
+
+```bash
+cp <apk-polku> /mnt/c/Users/<windows-kayttaja>/Downloads/StorageProvider-debug.apk
+```
+
+### 5. Asenna APK puhelimeen Windows 10 CMD:stä
+
+Kytke puhelimesta **Developer options** ja **USB debugging** päälle. Liitä puhelin USB-kaapelilla Windowsiin. Avaa Windowsissa **Command Prompt** eli `cmd.exe` ja tarkista yhteys:
+
+```cmd
+adb devices
+```
+
+Hyväksy tarvittaessa puhelimessa USB debugging -sormenjälki. Yhteys on valmis, kun `adb devices` näyttää laitteen tilassa `device`.
+
+Asenna APK:
+
+```cmd
+adb install -r %USERPROFILE%\Downloads\StorageProvider-debug.apk
+```
+
+Jos asennus epäonnistuu allekirjoituksen vaihtumisen takia, poista vanha debug-versio ensin. Paketin nimen näkee samplen `AndroidManifest.xml`- tai `build.gradle`-tiedostosta.
+
+### 6. Miten tästä tehdään andersNFSmount-pohja?
+
+Kun StorageProvider-sample buildaa ja asentuu puhelimeen, seuraava työvaihe on muokata sitä eikä tätä JVM-proof-of-conceptia:
+
+1. Vaihda samplen sovelluksen nimi ja package/applicationId muotoon `dev.andersnfs` tai muu valittu tunniste.
+2. Etsi samplesta `DocumentsProvider`-luokka.
+3. Korvaa samplen paikallinen fake-/testitiedostolista NFS-repository-rajapinnalla.
+4. Siirrä tästä repositorystä hyödylliset NFS-luonnokset uuteen Android-projektiin pala kerrallaan.
+5. Pidä ensimmäinen Android-versio lukutilaisena: listaa hakemistot ja avaa tiedostoja, mutta älä vielä tee kirjoitus-, rename- tai delete-operaatioita.
+
+Tämän jälkeen APK:n puhelintestaus tehdään samasta sample-pohjasta komennolla `gradle assembleDebug`, APK kopioidaan Windowsiin ja asennetaan `adb install -r` -komennolla yllä olevan ohjeen mukaan.
 
 ## NFS-palvelimen valmistelu manuaalitestejä varten
 
@@ -158,4 +199,4 @@ Android-sovelluksen lopullinen tavoite ei kuitenkaan ole tehdä tällaista kerne
 
 ## Ensimmäinen toteutustavoite
 
-Ensimmäinen varsinainen koodausvaihe on lisätä NFS-clientin Kotlin-rajapinnat, fake-toteutus ja lukutilainen tiedostoselain. Tämän jälkeen sama repository-kerros voidaan kytkeä `DocumentsProvider`-toteutukseen.
+Ensimmäinen varsinainen Android-toteutusvaihe tehdään StorageProvider-sample-pohjaan: lisää NFS-clientin rajapinnat, fake-toteutus ja lukutilainen tiedostoselain sample-projektin `DocumentsProvider`-toteutuksen taakse.
