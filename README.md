@@ -11,9 +11,20 @@ Katso tarkempi arkkitehtuuri- ja vaiheistussuunnitelma dokumentista [`docs/andro
 ## Kehitysympäristön oletus
 
 - Gradle 8.7
-- Kotlin 1.9.22
+- Kotlin Gradlen mukana tulevalla compilerillä
 - JVM 17
 - Android-projekti, johon NFS-ominaisuus lisätään Kotlinilla
+
+## Kääntäminen
+
+Tämä hakemisto sisältää tarkoituksella mahdollisimman pienen Gradle/Kotlin-pohjan. Se ei vielä ole Android-sovellus, vaan JVM:llä kääntyvä Kotlin-projekti, johon Android- ja SAF-kerrokset voidaan lisätä myöhemmin.
+
+Käytä JDK 17:ää ja aja:
+
+```bash
+gradle build
+gradle run
+```
 
 ## Ensimmäinen toteutustavoite
 

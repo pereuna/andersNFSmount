@@ -1,0 +1,58 @@
+plugins {
+    id 'base'
+}
+
+ext.kotlinLibs = fileTree("${gradle.gradleHomeDir}/lib") {
+    include 'kotlin-compiler-embeddable-*.jar'
+    include 'kotlin-stdlib-*.jar'
+    include 'kotlin-reflect-*.jar'
+    include 'kotlin-script-runtime-*.jar'
+    include 'trove4j-*.jar'
+    include 'annotations-*.jar'
+    include 'kotlinx-coroutines-core-jvm-*.jar'
+}
+
+
+ext.kotlinStdlib = fileTree("${gradle.gradleHomeDir}/lib") {
+    include 'kotlin-stdlib-*.jar'
+}
+
+tasks.register('compileKotlin', JavaExec) {
+    group = 'build'
+    description = 'Compiles Kotlin sources without an external Gradle plugin.'
+
+    def sources = fileTree('src/main/kotlin') { include '**/*.kt' }
+    inputs.files(sources)
+    outputs.dir(layout.buildDirectory.dir('classes/kotlin/main'))
+
+    classpath = kotlinLibs
+    mainClass = 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler'
+    args = [
+        '-d', layout.buildDirectory.dir('classes/kotlin/main').get().asFile.absolutePath,
+        '-jvm-target', '17',
+        '-no-reflect',
+        '-no-stdlib',
+        '-classpath', kotlinStdlib.files.join(File.pathSeparator)
+    ] + sources.files*.absolutePath
+}
+
+tasks.register('jar', Jar) {
+    group = 'build'
+    dependsOn 'compileKotlin'
+    from layout.buildDirectory.dir('classes/kotlin/main')
+    archiveBaseName = rootProject.name
+    manifest {
+        attributes 'Main-Class': 'dev.andersnfs.MainKt'
+    }
+}
+
+tasks.register('run', JavaExec) {
+    group = 'application'
+    dependsOn 'compileKotlin'
+    classpath = files(layout.buildDirectory.dir('classes/kotlin/main')) + kotlinStdlib
+    mainClass = 'dev.andersnfs.MainKt'
+}
+
+tasks.named('assemble') {
+    dependsOn 'jar'
+}
